@@ -62,6 +62,18 @@ defmodule MaelstromNexus.NodeTest do
       {:noreply, %{state | store: Map.put(state.store, "async", value)}}
     end
 
+    def handle_info({:send_to, dest, body}, state) do
+      {:send, dest, body, state}
+    end
+
+    def handle_info({:deferred_reply, original_msg, body}, state) do
+      {:reply_to, original_msg, body, state}
+    end
+
+    def handle_info({:deferred_error, original_msg, code, text}, state) do
+      {:error_to, original_msg, code, text, state}
+    end
+
     def handle_info(_msg, state), do: {:noreply, state}
   end
 
@@ -287,6 +299,62 @@ defmodule MaelstromNexus.NodeTest do
       send(pid, {:async_result, 999})
 
       assert_receive {:got_async, 999}, 500
+    end
+
+    test "handle_info can send a message via {:send, ...}" do
+      {pid, output} = start_node(StatefulHandler, handler_args: [test_pid: self()])
+      send_maelstrom(pid, init_message())
+
+      send(pid, {:send_to, "n1", %{"type" => "gossip", "data" => 42}})
+      Process.sleep(10)
+
+      messages = read_output_messages(output)
+      gossip = Enum.find(messages, &(&1["body"]["type"] == "gossip"))
+
+      assert gossip["dest"] == "n1"
+      assert gossip["body"]["data"] == 42
+    end
+
+    test "handle_info can reply via {:reply_to, ...}" do
+      {pid, output} = start_node(StatefulHandler, handler_args: [test_pid: self()])
+      send_maelstrom(pid, init_message())
+
+      original = %{
+        "src" => "c5",
+        "dest" => "n0",
+        "body" => %{"type" => "noreply_test", "msg_id" => 77}
+      }
+
+      send_maelstrom(pid, original)
+      send(pid, {:deferred_reply, original, %{"type" => "write_ok"}})
+      Process.sleep(10)
+
+      messages = read_output_messages(output)
+      reply = Enum.find(messages, &(&1["body"]["type"] == "write_ok"))
+
+      assert reply["body"]["in_reply_to"] == 77
+      assert reply["dest"] == "c5"
+    end
+
+    test "handle_info can error via {:error_to, ...}" do
+      {pid, output} = start_node(StatefulHandler, handler_args: [test_pid: self()])
+      send_maelstrom(pid, init_message())
+
+      original = %{
+        "src" => "c5",
+        "dest" => "n0",
+        "body" => %{"type" => "noreply_test", "msg_id" => 88}
+      }
+
+      send_maelstrom(pid, original)
+      send(pid, {:deferred_error, original, 20, "key not found"})
+      Process.sleep(10)
+
+      messages = read_output_messages(output)
+      error = Enum.find(messages, &(&1["body"]["type"] == "error"))
+
+      assert error["body"]["code"] == 20
+      assert error["body"]["in_reply_to"] == 88
     end
   end
 

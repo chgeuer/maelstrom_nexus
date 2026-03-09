@@ -115,6 +115,21 @@ defmodule MaelstromNexus.Node do
     case state.handler.handle_info(msg, state.handler_state) do
       {:noreply, new_handler_state} ->
         {:noreply, %{state | handler_state: new_handler_state}}
+
+      {:send, dest, body, new_handler_state} ->
+        state = %{state | handler_state: new_handler_state}
+        {state, _msg} = emit_outgoing(state, dest, body)
+        {:noreply, state}
+
+      {:reply_to, original_msg, reply_body, new_handler_state} ->
+        state = %{state | handler_state: new_handler_state}
+        {state, _msg} = emit_reply(state, original_msg, reply_body)
+        {:noreply, state}
+
+      {:error_to, original_msg, code, text, new_handler_state} ->
+        state = %{state | handler_state: new_handler_state}
+        {state, _msg} = emit_error_reply(state, original_msg, code, text)
+        {:noreply, state}
     end
   end
 
@@ -165,14 +180,17 @@ defmodule MaelstromNexus.Node do
        ) do
     state = %{state | node_id: node_id, node_ids: node_ids}
 
-    state =
-      case state.handler.handle_init(node_id, node_ids, state.handler_state) do
-        {:ok, new_handler_state} ->
-          %{state | handler_state: new_handler_state}
-      end
+    case state.handler.handle_init(node_id, node_ids, state.handler_state) do
+      {:ok, new_handler_state} ->
+        state = %{state | handler_state: new_handler_state}
+        {state, _msg} = emit_reply(state, msg, %{"type" => "init_ok"})
+        state
 
-    {state, _msg} = emit_reply(state, msg, %{"type" => "init_ok"})
-    state
+      {:error, code, text, new_handler_state} ->
+        state = %{state | handler_state: new_handler_state}
+        {state, _msg} = emit_error_reply(state, msg, code, text)
+        state
+    end
   end
 
   # --- Workload Message Dispatch ---

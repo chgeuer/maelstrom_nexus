@@ -56,7 +56,11 @@ defmodule MaelstromNexus do
           | {:noreply, state()}
           | {:error, non_neg_integer(), String.t(), state()}
 
-  @type info_result :: {:noreply, state()}
+  @type info_result ::
+          {:noreply, state()}
+          | {:send, dest :: String.t(), body(), state()}
+          | {:reply_to, original_msg :: map(), body(), state()}
+          | {:error_to, original_msg :: map(), non_neg_integer(), String.t(), state()}
 
   @doc """
   Called when the handler starts. Return `{:ok, initial_state}`.
@@ -70,7 +74,7 @@ defmodule MaelstromNexus do
   Use this to set up cluster-aware state (membership, topology, etc.).
   """
   @callback handle_init(node_id :: String.t(), node_ids :: [String.t()], state()) ::
-              {:ok, state()}
+              {:ok, state()} | {:error, non_neg_integer(), String.t(), state()}
 
   @doc """
   Called for each incoming Maelstrom message (except `init`, which is handled
@@ -97,8 +101,11 @@ defmodule MaelstromNexus do
   Use this to handle async operation results, transport envelope deliveries,
   timer messages, etc.
 
-  Within this callback, use `MaelstromNexus.send_msg/3` or
-  `MaelstromNexus.reply/3` to emit Maelstrom messages as side effects.
+  Return values:
+  - `{:noreply, state}` — update state, no output
+  - `{:send, dest, body, state}` — send a message to `dest`
+  - `{:reply_to, original_msg, body, state}` — reply to a stored message
+  - `{:error_to, original_msg, code, text, state}` — error reply to a stored message
   """
   @callback handle_info(msg :: term(), state()) :: info_result()
 
