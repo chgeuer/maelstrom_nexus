@@ -126,6 +126,31 @@ defmodule MaelstromNexus do
   # --- Public API ---
 
   @doc """
+  Returns a child specification for use in supervision trees.
+
+  Accepts `{handler_module, opts}` where `opts` are the same as `start_link/2`.
+
+  ## Example
+
+      children = [
+        {MaelstromNexus, {MyHandler, name: MyHandler, handler_args: [key: :value]}}
+      ]
+
+      Supervisor.start_link(children, strategy: :one_for_one)
+  """
+  @spec child_spec({module(), keyword()}) :: Supervisor.child_spec()
+  def child_spec({handler, opts}) when is_atom(handler) and is_list(opts) do
+    name = Keyword.get(opts, :name, handler)
+
+    %{
+      id: name,
+      start: {__MODULE__, :start_link, [handler, opts]},
+      type: :worker,
+      restart: :permanent
+    }
+  end
+
+  @doc """
   Starts a MaelstromNexus node with the given handler module.
 
   Reads from stdin and writes to stdout by default. Blocks until stdin closes.
@@ -170,8 +195,8 @@ defmodule MaelstromNexus do
   Starts a MaelstromNexus node as a child in a supervision tree.
 
   Unlike `run/2`, this does not block — it returns `{:ok, pid}`.
-  You must provide your own input stream via the `:input` option,
-  or start the Reader separately.
+  Reads from stdin by default (same as `run/2`). Pass `input: nil`
+  to disable automatic stdin reading.
 
   ## Options
 
@@ -182,7 +207,7 @@ defmodule MaelstromNexus do
     name = Keyword.get(opts, :name, handler)
     handler_args = Keyword.get(opts, :handler_args, [])
     output = Keyword.get(opts, :output, :stdio)
-    input = Keyword.get(opts, :input)
+    input = Keyword.get_lazy(opts, :input, fn -> IO.stream(:line) end)
 
     Node.start_link(
       handler: handler,

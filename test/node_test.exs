@@ -323,4 +323,19 @@ defmodule MaelstromNexus.NodeTest do
       assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 500
     end
   end
+
+  describe "child_spec" do
+    test "builds valid child spec from {handler, opts} tuple" do
+      spec = MaelstromNexus.child_spec({EchoHandler, name: :test_echo})
+
+      assert spec.id == :test_echo
+      assert spec.start == {MaelstromNexus, :start_link, [EchoHandler, [name: :test_echo]]}
+      assert spec.type == :worker
+    end
+
+    test "defaults name to handler module" do
+      spec = MaelstromNexus.child_spec({EchoHandler, []})
+      assert spec.id == EchoHandler
+    end
+  end
 end

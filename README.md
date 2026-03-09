@@ -2,9 +2,7 @@
 
 A multi-process [Maelstrom](https://github.com/jepsen-io/maelstrom) protocol library for Elixir.
 
-MaelstromNexus lets you test complex distributed systems — consensus engines,
-replicated state machines, custom transport layers — under
-[Jepsen](https://jepsen.io/)'s Maelstrom fault-injection framework.
+MaelstromNexus lets you test complex distributed systems — consensus engines, replicated state machines, custom transport layers — under [Jepsen](https://jepsen.io/)'s Maelstrom fault-injection framework.
 
 ## Installation
 
@@ -187,15 +185,18 @@ end
 
 ## Supervision tree integration
 
-For embedding in a host application's supervision tree:
+Use `child_spec/1` with the `{handler, opts}` tuple form:
 
 ```elixir
 children = [
-  {MaelstromNexus, {MyWorkload, name: MyWorkload, input: IO.stream(:line)}}
+  {MaelstromNexus, {MyHandler, name: MyHandler, handler_args: [kv: MyKvServer]}}
 ]
 
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
+
+By default, `start_link/2` reads from stdin (same as `run/2`). Pass `input: nil`
+to disable automatic stdin reading (useful in tests).
 
 ## Error codes
 
