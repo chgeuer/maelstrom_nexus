@@ -6,36 +6,6 @@ MaelstromNexus lets you test complex distributed systems — consensus engines,
 replicated state machines, custom transport layers — under
 [Jepsen](https://jepsen.io/)'s Maelstrom fault-injection framework.
 
-## Why not `maelstrom` (hex)?
-
-The existing [`maelstrom`](https://hex.pm/packages/maelstrom) package
-([source](https://github.com/prehnRA/maelstrom_ex)) is a clean, minimal
-implementation of the Maelstrom protocol. It works well for the
-[Fly.io distributed systems challenges](https://fly.io/dist-sys/) and
-educational exercises where all logic lives inside a single `handle_message`
-callback.
-
-However, it was not designed for the needs of production-grade distributed
-systems libraries:
-
-| Concern | `maelstrom` (hex) | `maelstrom_nexus` |
-|---|---|---|
-| **Process model** | Single GenServer; all logic must live in `handle_message` | GenServer with `handle_info` — other BEAM processes can deliver results |
-| **Sending from other processes** | Not supported; output only happens inside `handle_cast` | Any process can call `send_msg/3`, `reply/3`, `error_reply/4` |
-| **Transient errors** | Must always reply or send an error | `{:noreply, state}` lets you intentionally drop replies (Knossos records as `:info`) |
-| **Async operations** | N/A — single-threaded by design | `handle_info/2` receives results from spawned tasks, Bridges, transport layers |
-| **Init lifecycle** | No callback; init is handled silently | `handle_init/3` callback for cluster-aware setup |
-| **Error codes** | Raw integers, no helpers | `MaelstromNexus.Message.error_code/1` with named atoms |
-| **Supervision** | `run_forever` — no supervision tree integration | `start_link/2` for embedding in supervision trees |
-
-### When to use which
-
-- **Use `maelstrom`** for learning exercises, single-node-logic workloads, and
-  quick prototyping where everything fits in one `handle_message`.
-- **Use `maelstrom_nexus`** when your system has multiple cooperating processes,
-  async operations, or custom transport layers that need to emit Maelstrom
-  messages.
-
 ## Installation
 
 Add to your `mix.exs`:
@@ -46,6 +16,27 @@ def deps do
     {:maelstrom_nexus, "~> 0.1.0"}
   ]
 end
+```
+
+Then fetch the Maelstrom test framework itself:
+
+```bash
+mix deps.get
+mix maelstrom_nexus.setup
+```
+
+This downloads the Maelstrom binary and jar into `.maelstrom/` (automatically
+gitignored). You can specify a version:
+
+```bash
+mix maelstrom_nexus.setup --version v0.2.4
+```
+
+Check installation status programmatically:
+
+```elixir
+MaelstromNexus.Setup.installed?()        # => true
+MaelstromNexus.Setup.bin_path()          # => ".maelstrom/maelstrom/maelstrom"
 ```
 
 ## Quick start
@@ -220,6 +211,30 @@ MaelstromNexus.Message.error_code(:key_already_exists)       # => 21
 MaelstromNexus.Message.error_code(:precondition_failed)      # => 22
 MaelstromNexus.Message.error_code(:txn_conflict)             # => 30
 ```
+
+## Existing work: Why didn't we re-use `maelstrom` (hex)?
+
+The existing [`maelstrom`](https://hex.pm/packages/maelstrom) package ([source](https://github.com/prehnRA/maelstrom_ex)) is a clean, minimal implementation of the Maelstrom protocol. It works well for the [Fly.io distributed systems challenges](https://fly.io/dist-sys/) and educational exercises where all logic lives inside a single `handle_message` callback.
+
+However, it was not designed for the needs of production-grade distributed systems libraries:
+
+| Concern | `maelstrom` (hex) | `maelstrom_nexus` |
+|---|---|---|
+| **Process model** | Single GenServer; all logic must live in `handle_message` | GenServer with `handle_info` — other BEAM processes can deliver results |
+| **Sending from other processes** | Not supported; output only happens inside `handle_cast` | Any process can call `send_msg/3`, `reply/3`, `error_reply/4` |
+| **Transient errors** | Must always reply or send an error | `{:noreply, state}` lets you intentionally drop replies (Knossos records as `:info`) |
+| **Async operations** | N/A — single-threaded by design | `handle_info/2` receives results from spawned tasks, Bridges, transport layers |
+| **Init lifecycle** | No callback; init is handled silently | `handle_init/3` callback for cluster-aware setup |
+| **Error codes** | Raw integers, no helpers | `MaelstromNexus.Message.error_code/1` with named atoms |
+| **Supervision** | `run_forever` — no supervision tree integration | `start_link/2` for embedding in supervision trees |
+
+### When to use which
+
+- **Use `maelstrom`** for learning exercises, single-node-logic workloads, and
+  quick prototyping where everything fits in one `handle_message`.
+- **Use `maelstrom_nexus`** when your system has multiple cooperating processes,
+  async operations, or custom transport layers that need to emit Maelstrom
+  messages.
 
 ## License
 

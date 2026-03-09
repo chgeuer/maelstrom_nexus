@@ -160,4 +160,6 @@ MyWorkload.run()
 
 Make the wrapper executable: `chmod +x bin/my_node`.
 
-Then run: `./maelstrom test -w lin-kv --bin bin/my_node --node-count 3 --time-limit 30`
+Then run: `.maelstrom/maelstrom/maelstrom test -w lin-kv --bin bin/my_node --node-count 3 --time-limit 30`
+
+To re-download (e.g. after a version bump): `mix maelstrom_nexus.setup --force`
