@@ -11,7 +11,7 @@ Add to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:maelstrom_nexus, "~> 0.1.0"}
+    {:maelstrom_nexus, github: "chgeuer/maelstrom_nexus"}
   ]
 end
 ```
